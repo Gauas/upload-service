@@ -1,41 +1,23 @@
-FROM golang:1.25-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 WORKDIR /app
 
-# Copy go mod files first for better caching
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy source code
 COPY . .
 
-# Build HTTP service
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o http-service ./main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o app ./cmd/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o consumer ./consumer/
 
-# Build Consumer service (uncomment when consumer is ready)
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o consumer-service ./consumer/main.go
-
-# Final stage
-FROM alpine:3.18
+FROM alpine:3.20
 
 WORKDIR /app
 
-# Install dependencies
-RUN apk add --no-cache \
-    bash \
-    ca-certificates \
-    curl \
-    && curl -L https://github.com/golang-migrate/migrate/releases/download/v4.18.3/migrate.linux-amd64.tar.gz \
-    | tar xvz -C /tmp \
-    && mv /tmp/migrate /usr/local/bin/migrate \
-    && chmod +x /usr/local/bin/migrate \
-    && rm -rf /tmp/*
+RUN apk add --no-cache bash ca-certificates
 
-# Copy binaries and required files
-COPY --from=builder /app/http-service .
-COPY --from=builder /app/consumer-service .
-# COPY deploy/migrations ./migrations
-COPY shared/config ./shared/config
+COPY --from=builder /app/app .
+COPY --from=builder /app/consumer .
 COPY entrypoint.sh .
 
 RUN chmod +x entrypoint.sh

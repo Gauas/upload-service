@@ -371,7 +371,7 @@ curl -X GET \
 **English:**
 1. Build the Docker image:
    ```bash
-   docker build -t gau-upload-service .
+   docker build -t upload-service .
    ```
 2. Run the container:
    ```bash
@@ -380,13 +380,13 @@ curl -X GET \
      -e MINIO_ACCESS_KEY_ID=minioadmin \
      -e MINIO_SECRET_ACCESS_KEY=minioadmin \
      -e PRIVATE_KEY=your-secret-key \
-     gau-upload-service
+     upload-service
    ```
 
 **Tiếng Việt:**
 1. Build image Docker:
    ```bash
-   docker build -t gau-upload-service .
+   docker build -t upload-service .
    ```
 2. Chạy container:
    ```bash
@@ -395,7 +395,7 @@ curl -X GET \
      -e MINIO_ACCESS_KEY_ID=minioadmin \
      -e MINIO_SECRET_ACCESS_KEY=minioadmin \
      -e PRIVATE_KEY=your-secret-key \
-     gau-upload-service
+     upload-service
    ```
 
 ---
