@@ -22,6 +22,7 @@ type Config struct {
 	SecretKey   string
 	TempDir     string
 	FileMaxSize int64
+	CDNURL      string
 	Storage     StorageConfig
 	Queue       QueueConfig
 }
