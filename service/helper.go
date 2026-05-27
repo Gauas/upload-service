@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -37,7 +38,10 @@ func detectContentType(f *os.File) (string, error) {
 	}
 
 	buf := make([]byte, 512)
-	n, _ := f.Read(buf)
+	n, err := f.Read(buf)
+	if err != nil && !errors.Is(err, io.EOF) {
+		return "", fmt.Errorf("service: read for content-type: %w", err)
+	}
 
 	return http.DetectContentType(buf[:n]), nil
 }

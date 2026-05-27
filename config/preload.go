@@ -48,6 +48,7 @@ func fromFile() (Config, bool) {
 		SecretKey:   get("SECRET_KEY"),
 		TempDir:     opt("TEMP_DIR", "/tmp/gau-upload"),
 		FileMaxSize: getInt64("FILE_MAX_SIZE", 10*1024*1024),
+		CDNURL:      opt("CDN_URL", ""),
 		Storage: StorageConfig{
 			Endpoint:  get("STORAGE_ENDPOINT"),
 			AccessKey: get("STORAGE_ACCESS_KEY"),
@@ -85,6 +86,7 @@ func fromSDK() Config {
 		SecretKey:   mustEnv("SECRET_KEY"),
 		TempDir:     remote.GetString("TEMP_DIR", "/tmp/gau-upload"),
 		FileMaxSize: parseInt64(remote.GetString("FILE_MAX_SIZE", ""), 10*1024*1024),
+		CDNURL:      remote.GetString("CDN_URL", ""),
 		Storage: StorageConfig{
 			Endpoint:  remote.GetString("STORAGE_ENDPOINT", ""),
 			AccessKey: remote.GetString("STORAGE_ACCESS_KEY", ""),
