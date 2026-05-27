@@ -14,7 +14,7 @@ spec:
         app: gau-upload-service
     spec:
       containers:
-        - name: gau-upload-service
+        - name: upload-service
           image: iamqbao/gau_upload_service:latest
           envFrom:
 #            - configMapRef:
