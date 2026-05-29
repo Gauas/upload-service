@@ -64,7 +64,7 @@ func (s *Service) Upload(ctx context.Context, p UploadParams) (*UploadResult, er
 	}
 	if exists && existingPath == fullPath {
 		return &UploadResult{
-			URL:         supports.JoinURL(s.cfg.CDNURL, p.Bucket, existingPath),
+			URL:         supports.JoinURL(s.cfg.CDNURL, existingPath),
 			FilePath:    existingPath,
 			FileHash:    fileHash,
 			ContentType: p.ContentType,
@@ -111,7 +111,6 @@ func (s *Service) Upload(ctx context.Context, p UploadParams) (*UploadResult, er
 		Duplicated:  exists && existingPath != fullPath,
 	}, nil
 }
-
 
 func (s *Service) Get(ctx context.Context, bucket, path string) ([]byte, string, error) {
 	return s.infra.Storage.Get(ctx, bucket, path)

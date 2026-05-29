@@ -3,6 +3,8 @@ package model
 import "time"
 
 type FileMetadata struct {
+	ID           int64     `parquet:"id"`
+	Key          string    `parquet:"key,snappy"`
 	FileHash     string    `parquet:"file_hash,snappy"`
 	FilePath     string    `parquet:"file_path,snappy"`
 	BucketName   string    `parquet:"bucket_name,snappy"`
