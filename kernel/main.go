@@ -10,7 +10,7 @@ import (
 	"github.com/gauas/upload-service/config"
 	"github.com/gauas/upload-service/controller"
 	"github.com/gauas/upload-service/middlewares"
-	"github.com/gauas/upload-service/packages/response"
+	response "github.com/gauas/upload-service/packages/httpresp"
 	"github.com/gauas/upload-service/route"
 )
 
@@ -55,3 +55,5 @@ func errorHandler(err error, c echo.Context) {
 
 	_ = c.JSON(500, response.Response{Status: 500, Error: "internal server error"})
 }
+
+

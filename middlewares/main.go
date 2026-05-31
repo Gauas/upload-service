@@ -7,7 +7,7 @@ import (
 	"github.com/labstack/echo/v4"
 	echoMiddleware "github.com/labstack/echo/v4/middleware"
 	"github.com/gauas/upload-service/config"
-	"github.com/gauas/upload-service/packages/response"
+	response "github.com/gauas/upload-service/packages/httpresp"
 )
 
 type Middleware struct {
@@ -36,3 +36,5 @@ func (m *Middleware) Internal() echo.MiddlewareFunc {
 		}
 	}
 }
+
+

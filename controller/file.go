@@ -3,20 +3,20 @@ package controller
 import (
 	"strings"
 
-	"github.com/labstack/echo/v4"
-	"github.com/gauas/upload-service/packages/response"
+	"github.com/gauas/upload-service/packages/httpresp"
 	"github.com/gauas/upload-service/service"
+	"github.com/labstack/echo/v4"
 )
 
 func (ctrl *Controller) UploadFile(c echo.Context) error {
 	fileHeader, err := c.FormFile("file")
 	if err != nil {
-		return response.NewError(400, "file is required")
+		return httpresp.NewError(400, "file is required")
 	}
 
 	bucket := strings.TrimSpace(c.FormValue("bucket"))
 	if bucket == "" {
-		return response.NewError(400, "bucket is required")
+		return httpresp.NewError(400, "bucket is required")
 	}
 
 	path := strings.TrimSpace(c.FormValue("path"))
@@ -25,7 +25,7 @@ func (ctrl *Controller) UploadFile(c echo.Context) error {
 
 	src, err := fileHeader.Open()
 	if err != nil {
-		return response.NewError(500, "failed to open file")
+		return httpresp.NewError(500, "failed to open file")
 	}
 	defer src.Close()
 
@@ -39,10 +39,10 @@ func (ctrl *Controller) UploadFile(c echo.Context) error {
 		IsHash:      isHash,
 	})
 	if err != nil {
-		return response.Wrap(err)
+		return err
 	}
 
-	return response.OK(c, result)
+	return httpresp.OK(c, result)
 }
 
 func (ctrl *Controller) GetFile(c echo.Context) error {
@@ -50,15 +50,15 @@ func (ctrl *Controller) GetFile(c echo.Context) error {
 	path := c.QueryParam("file_path")
 
 	if bucket == "" {
-		return response.NewError(400, "bucket is required")
+		return httpresp.NewError(400, "bucket is required")
 	}
 	if path == "" {
-		return response.NewError(400, "file_path is required")
+		return httpresp.NewError(400, "file_path is required")
 	}
 
 	data, contentType, err := ctrl.service.Get(c.Request().Context(), bucket, path)
 	if err != nil {
-		return response.ErrorNotFound
+		return httpresp.ErrorNotFound
 	}
 
 	return c.Blob(200, contentType, data)
@@ -69,17 +69,17 @@ func (ctrl *Controller) DeleteFile(c echo.Context) error {
 	path := c.QueryParam("file_path")
 
 	if bucket == "" {
-		return response.NewError(400, "bucket is required")
+		return httpresp.NewError(400, "bucket is required")
 	}
 	if path == "" {
-		return response.NewError(400, "file_path is required")
+		return httpresp.NewError(400, "file_path is required")
 	}
 
 	if err := ctrl.service.Delete(c.Request().Context(), bucket, path); err != nil {
-		return response.Wrap(err)
+		return err
 	}
 
-	return response.NoContent(c, "file deleted")
+	return httpresp.NoContent(c, "file deleted")
 }
 
 func (ctrl *Controller) ListFiles(c echo.Context) error {
@@ -87,15 +87,15 @@ func (ctrl *Controller) ListFiles(c echo.Context) error {
 	prefix := c.QueryParam("prefix")
 
 	if bucket == "" {
-		return response.NewError(400, "bucket is required")
+		return httpresp.NewError(400, "bucket is required")
 	}
 
 	files, err := ctrl.service.List(c.Request().Context(), bucket, prefix)
 	if err != nil {
-		return response.Wrap(err)
+		return err
 	}
 
-	return response.OK(c, echo.Map{
+	return httpresp.OK(c, echo.Map{
 		"files":  files,
 		"count":  len(files),
 		"bucket": bucket,
@@ -104,5 +104,5 @@ func (ctrl *Controller) ListFiles(c echo.Context) error {
 }
 
 func (ctrl *Controller) Health(c echo.Context) error {
-	return response.OK(c, echo.Map{"status": "ok"})
+	return httpresp.OK(c, echo.Map{"status": "ok"})
 }

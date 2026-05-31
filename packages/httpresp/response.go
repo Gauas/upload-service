@@ -1,7 +1,6 @@
-package response
+package httpresp
 
 import (
-	"errors"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -23,12 +22,4 @@ func Created(c echo.Context, data interface{}) error {
 
 func NoContent(c echo.Context, message string) error {
 	return c.JSON(http.StatusOK, Response{Status: http.StatusOK, Data: echo.Map{"message": message}})
-}
-
-func Wrap(err error) error {
-	var e *Error
-	if errors.As(err, &e) {
-		return e
-	}
-	return NewError(http.StatusInternalServerError, "internal server error")
 }

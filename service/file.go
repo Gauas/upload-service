@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/gauas/upload-service/model"
-	"github.com/gauas/upload-service/packages/response"
+	response "github.com/gauas/upload-service/packages/httpresp"
 	"github.com/gauas/upload-service/supports"
 )
 
@@ -127,3 +127,5 @@ func (s *Service) Delete(ctx context.Context, bucket, path string) error {
 func (s *Service) List(ctx context.Context, bucket, prefix string) ([]string, error) {
 	return s.infra.Storage.List(ctx, bucket, prefix)
 }
+
+
