@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/gauas/upload-service/model"
-	"github.com/gauas/upload-service/packages/response"
+	response "github.com/gauas/upload-service/packages/httpresp"
 	"github.com/gauas/upload-service/supports"
 )
 
@@ -64,7 +64,7 @@ func (s *Service) Upload(ctx context.Context, p UploadParams) (*UploadResult, er
 	}
 	if exists && existingPath == fullPath {
 		return &UploadResult{
-			URL:         supports.JoinURL(s.cfg.CDNURL, p.Bucket, existingPath),
+			URL:         supports.JoinURL(s.cfg.CDNURL, existingPath),
 			FilePath:    existingPath,
 			FileHash:    fileHash,
 			ContentType: p.ContentType,
@@ -112,7 +112,6 @@ func (s *Service) Upload(ctx context.Context, p UploadParams) (*UploadResult, er
 	}, nil
 }
 
-
 func (s *Service) Get(ctx context.Context, bucket, path string) ([]byte, string, error) {
 	return s.infra.Storage.Get(ctx, bucket, path)
 }
@@ -128,3 +127,5 @@ func (s *Service) Delete(ctx context.Context, bucket, path string) error {
 func (s *Service) List(ctx context.Context, bucket, prefix string) ([]string, error) {
 	return s.infra.Storage.List(ctx, bucket, prefix)
 }
+
+
