@@ -28,10 +28,7 @@ type Config struct {
 }
 
 func New() Config {
-	if cfg, ok := fromFile(); ok {
-		return cfg
-	}
-	return fromSDK()
+	return fromEnv()
 }
 
 func validate(cfg Config) {
