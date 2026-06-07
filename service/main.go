@@ -6,10 +6,10 @@ import (
 )
 
 type Service struct {
-	cfg   config.Config
-	infra *infra.Infra
+	Config *config.Config
+	Infra  *infra.Infra
 }
 
-func New(cfg config.Config, i *infra.Infra) *Service {
-	return &Service{cfg: cfg, infra: i}
+func New(cfg *config.Config, infra *infra.Infra) *Service {
+	return &Service{Config: cfg, Infra: infra}
 }

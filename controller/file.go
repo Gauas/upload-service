@@ -29,7 +29,7 @@ func (ctrl *Controller) UploadFile(c echo.Context) error {
 	}
 	defer src.Close()
 
-	result, err := ctrl.service.Upload(c.Request().Context(), service.UploadParams{
+	result, err := ctrl.Service.Upload(c.Request().Context(), service.UploadParams{
 		Reader:      src,
 		Size:        fileHeader.Size,
 		Filename:    fileHeader.Filename,
@@ -56,7 +56,7 @@ func (ctrl *Controller) GetFile(c echo.Context) error {
 		return httpresp.NewError(400, "file_path is required")
 	}
 
-	data, contentType, err := ctrl.service.Get(c.Request().Context(), bucket, path)
+	data, contentType, err := ctrl.Service.Get(c.Request().Context(), bucket, path)
 	if err != nil {
 		return httpresp.ErrorNotFound
 	}
@@ -75,7 +75,7 @@ func (ctrl *Controller) DeleteFile(c echo.Context) error {
 		return httpresp.NewError(400, "file_path is required")
 	}
 
-	if err := ctrl.service.Delete(c.Request().Context(), bucket, path); err != nil {
+	if err := ctrl.Service.Delete(c.Request().Context(), bucket, path); err != nil {
 		return err
 	}
 
@@ -90,7 +90,7 @@ func (ctrl *Controller) ListFiles(c echo.Context) error {
 		return httpresp.NewError(400, "bucket is required")
 	}
 
-	files, err := ctrl.service.List(c.Request().Context(), bucket, prefix)
+	files, err := ctrl.Service.List(c.Request().Context(), bucket, prefix)
 	if err != nil {
 		return err
 	}

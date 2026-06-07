@@ -8,7 +8,7 @@ RUN go mod download
 COPY . .
 
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o app ./cmd/main.go
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o consumer ./consumer/
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o consumer ./consumer
 
 FROM alpine:3.20
 
@@ -22,6 +22,6 @@ COPY entrypoint.sh .
 
 RUN chmod +x entrypoint.sh
 
-EXPOSE 8080
+EXPOSE 8080 9090
 
 ENTRYPOINT ["./entrypoint.sh"]

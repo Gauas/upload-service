@@ -19,6 +19,7 @@ type QueueConfig struct {
 
 type Config struct {
 	Port        string
+	GRPCPort    string
 	SecretKey   string
 	TempDir     string
 	FileMaxSize int64
@@ -27,16 +28,16 @@ type Config struct {
 	Queue       QueueConfig
 }
 
-func New() Config {
-	if cfg, ok := fromFile(); ok {
-		return cfg
-	}
-	return fromSDK()
+func New() *Config {
+	return fromEnv()
 }
 
-func validate(cfg Config) {
+func validate(cfg *Config) {
 	if cfg.Port == "" {
 		log.Fatal("config: PORT is required")
+	}
+	if cfg.GRPCPort == "" {
+		log.Fatal("config: GRPC_PORT is required")
 	}
 	if cfg.SecretKey == "" {
 		log.Fatal("config: SECRET_KEY is required")

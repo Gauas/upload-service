@@ -15,7 +15,7 @@ type Infra struct {
 	Queue    *queue.Client
 }
 
-func New(cfg config.Config) *Infra {
+func New(cfg *config.Config) *Infra {
 	store, err := storage.New(cfg.Storage)
 	if err != nil {
 		log.Fatalf("infra: storage: %v", err)
@@ -38,7 +38,7 @@ func New(cfg config.Config) *Infra {
 	}
 }
 
-func NewForConsumer(cfg config.Config) *Infra {
+func NewForConsumer(cfg *config.Config) *Infra {
 	store, err := storage.New(cfg.Storage)
 	if err != nil {
 		log.Fatalf("infra: storage: %v", err)

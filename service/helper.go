@@ -11,7 +11,7 @@ import (
 )
 
 func (s *Service) writeTempFile(r io.Reader) (*os.File, func(), error) {
-	dir := s.cfg.TempDir
+	dir := s.Config.TempDir
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return nil, nil, fmt.Errorf("service: create temp dir: %w", err)
 	}
