@@ -1,14 +1,16 @@
 package main
 
 import (
-	"github.com/joho/godotenv"
-	"github.com/tnqbao/gau-upload-service/http/controller"
-	"github.com/tnqbao/gau-upload-service/http/routes"
-	"github.com/tnqbao/gau-upload-service/shared/config"
-	"github.com/tnqbao/gau-upload-service/shared/infra"
-	"github.com/tnqbao/gau-upload-service/shared/repository"
-
 	"log"
+
+	"github.com/joho/godotenv"
+	"github.com/gauas/upload-service/app"
+	"github.com/gauas/upload-service/config"
+	"github.com/gauas/upload-service/controller"
+	"github.com/gauas/upload-service/grpc"
+	"github.com/gauas/upload-service/http"
+	"github.com/gauas/upload-service/infra"
+	"github.com/gauas/upload-service/middlewares"
 )
 
 func main() {
@@ -17,14 +19,17 @@ func main() {
 		log.Println("No .env file found, continuing with environment variables")
 	}
 
-	// Initialize configuration and infrastructure
-	cfg := config.NewConfig()
-	repo := repository.NewRepository(cfg)
-	infra := infra.InitInfra(cfg)
+	cfgValue := config.New()
+	cfg := &cfgValue
+	infraInstance := infra.InitInfra(cfg)
+	ctrl := controller.NewController(cfg, infraInstance)
+	mw := middlewares.New(cfg)
 
-	// Initialize controller with the new configuration and infrastructure
-	ctrl := controller.NewController(cfg, repo, infra)
+	httpServer := http.Register(cfg, ctrl, mw)
+	grpcServer := grpc.Register(cfg.GRPCPort)
 
-	router := routes.SetupRouter(ctrl)
-	router.Run(":8080")
+	// Append consumerServer here when the consumer runs in this process.
+	if err := app.Start(httpServer, grpcServer); err != nil {
+		log.Fatal(err)
+	}
 }

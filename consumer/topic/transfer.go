@@ -7,8 +7,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/tnqbao/gau-upload-service/consumer/service"
-	"github.com/tnqbao/gau-upload-service/shared/infra"
+	"github.com/gauas/upload-service/consumer/service"
+	"github.com/gauas/upload-service/infra"
 )
 
 // StreamUploadMessage represents the message structure from the queue

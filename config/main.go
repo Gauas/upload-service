@@ -17,14 +17,39 @@ type QueueConfig struct {
 	Password string
 }
 
+type ChunkConfig struct {
+	DefaultChunkSize int64
+	MaxChunkSize     int64
+	TempDir          string
+}
+
+type LimitConfig struct {
+	ImageMaxSize int64
+	FileMaxSize  int64
+}
+
+type GrafanaConfig struct {
+	OTLPEndpoint string
+	ServiceName  string
+}
+
+type EnvironmentConfig struct {
+	Mode  string
+	Group string
+}
+
 type Config struct {
-	Port        string
-	SecretKey   string
-	TempDir     string
-	FileMaxSize int64
-	CDNURL      string
-	Storage     StorageConfig
-	Queue       QueueConfig
+	Port       string
+	GRPCPort   string
+	SecretKey  string
+	PrivateKey string
+	CDNURL     string
+	Storage    StorageConfig
+	Queue      QueueConfig
+	Chunk      ChunkConfig
+	Limit      LimitConfig
+	Grafana    GrafanaConfig
+	Env        EnvironmentConfig
 }
 
 func New() Config {

@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tnqbao/gau-upload-service/shared/infra"
+	"github.com/gauas/upload-service/infra"
 )
 
 // ChunkCompleteMessage is received from cloud-orchestrator when all chunks are uploaded
