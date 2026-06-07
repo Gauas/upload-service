@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/tnqbao/gau-upload-service/shared/config"
-	"github.com/tnqbao/gau-upload-service/shared/infra"
+	"github.com/gauas/upload-service/config"
+	"github.com/gauas/upload-service/infra"
 )
 
 // ChunkRequest represents a request to process a large file
@@ -48,7 +48,7 @@ func NewChunkerService(cfg *config.Config, inf *infra.Infra) *ChunkerService {
 	return &ChunkerService{
 		config:           cfg,
 		infra:            inf,
-		defaultChunkSize: cfg.EnvConfig.ChunkConfig.DefaultChunkSize,
+		defaultChunkSize: cfg.Chunk.DefaultChunkSize,
 	}
 }
 
@@ -127,7 +127,7 @@ func (s *ChunkerService) streamToMain(ctx context.Context, tempBucket, tempPath,
 	log.Printf("[Chunker] Starting direct stream from %s/%s to %s/%s", tempBucket, tempPath, mainBucket, mainKey)
 
 	// Get object stream from temp MinIO
-	stream, size, err := s.infra.TempMinioClient.GetObjectStream(ctx, tempBucket, tempPath)
+	stream, size, err := s.infra.MinioClient.GetObjectStream(ctx, tempBucket, tempPath)
 	if err != nil {
 		return fmt.Errorf("failed to get object stream: %w", err)
 	}
@@ -155,7 +155,7 @@ func (s *ChunkerService) streamToMain(ctx context.Context, tempBucket, tempPath,
 
 // cleanupTemp deletes the temporary file from temp MinIO
 func (s *ChunkerService) cleanupTemp(ctx context.Context, bucket, path string) error {
-	if err := s.infra.TempMinioClient.DeleteObject(ctx, bucket, path); err != nil {
+	if err := s.infra.MinioClient.DeleteObject(ctx, bucket, path); err != nil {
 		return fmt.Errorf("failed to delete temp file: %w", err)
 	}
 	log.Printf("[Chunker] Cleaned up temp file: %s/%s", bucket, path)

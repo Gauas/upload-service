@@ -1,7 +1,7 @@
 package provider
 
 import (
-	"github.com/tnqbao/gau-upload-service/config"
+	"github.com/gauas/upload-service/config"
 )
 
 type Provider struct {
@@ -10,7 +10,7 @@ type Provider struct {
 
 var provider *Provider
 
-func InitProvider(cfg *config.EnvConfig) *Provider {
+func InitProvider(cfg *config.Config) *Provider {
 	loggerProvider := NewLoggerProvider()
 	provider = &Provider{
 		LoggerProvider: loggerProvider,

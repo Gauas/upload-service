@@ -8,9 +8,9 @@ import (
 	"syscall"
 
 	"github.com/joho/godotenv"
-	"github.com/tnqbao/gau-upload-service/consumer/topic"
-	"github.com/tnqbao/gau-upload-service/shared/config"
-	"github.com/tnqbao/gau-upload-service/shared/infra"
+	"github.com/gauas/upload-service/consumer/topic"
+	"github.com/gauas/upload-service/config"
+	"github.com/gauas/upload-service/infra"
 )
 
 const (
@@ -31,8 +31,9 @@ func main() {
 	}
 
 	// Initialize configuration
-	cfg := config.NewConfig()
-	log.Printf("Consumer service starting with config: %+v", cfg.EnvConfig.Environment)
+	cfgValue := config.New()
+	cfg := &cfgValue
+	log.Printf("Consumer service starting with config: %+v", cfg.Env)
 
 	// Initialize infrastructure for consumer (requires RabbitMQ)
 	inf := infra.InitInfraForConsumer(cfg)
