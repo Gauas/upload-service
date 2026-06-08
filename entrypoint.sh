@@ -6,8 +6,8 @@ echo "Starting service: $SERVICE_TYPE"
 
 if [ "$SERVICE_TYPE" = "consumer" ]; then
     echo "Starting consumer service..."
-    if [ -f "./consumer" ]; then
-        exec ./consumer
+    if [ -f "./consumer-service" ]; then
+        exec ./consumer-service
     fi
 
     echo "Consumer binary not found. Running with go run..."
@@ -15,8 +15,8 @@ if [ "$SERVICE_TYPE" = "consumer" ]; then
 fi
 
 echo "Starting HTTP API service..."
-if [ -f "./app" ]; then
-    exec ./app
+if [ -f "./http-service" ]; then
+    exec ./http-service
 fi
 
 echo "HTTP binary not found. Running with go run..."

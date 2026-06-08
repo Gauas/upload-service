@@ -7,8 +7,11 @@ RUN go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o app ./cmd/main.go
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o consumer ./consumer
+RUN mkdir -p /build/bin
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    go build -trimpath -ldflags="-s -w" -o /build/bin/http-service ./cmd/main.go
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    go build -trimpath -ldflags="-s -w" -o /build/bin/consumer-service ./consumer
 
 FROM alpine:3.20
 
@@ -16,8 +19,8 @@ WORKDIR /app
 
 RUN apk add --no-cache bash ca-certificates
 
-COPY --from=builder /app/app .
-COPY --from=builder /app/consumer .
+COPY --from=builder /build/bin/http-service .
+COPY --from=builder /build/bin/consumer-service .
 COPY entrypoint.sh .
 
 RUN chmod +x entrypoint.sh
