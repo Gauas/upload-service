@@ -2,61 +2,67 @@ package http
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
-	"net/http"
+	nethttp "net/http"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/gauas/upload-service/config"
 	"github.com/gauas/upload-service/controller"
 	"github.com/gauas/upload-service/middlewares"
+	"github.com/gauas/upload-service/packages/httpresp"
+	"github.com/gauas/upload-service/route"
+	"github.com/labstack/echo/v4"
 )
 
 type Server struct {
-	port       string
 	controller *controller.Controller
 	middleware *middlewares.Middleware
+	config     config.Config
 }
 
-func Register(cfg *config.Config, ctrl *controller.Controller, mw *middlewares.Middleware) *Server {
-	return &Server{
-		port:       cfg.Port,
-		controller: ctrl,
-		middleware: mw,
-	}
+func Register(ctrl *controller.Controller, mw *middlewares.Middleware, cfg *config.Config) *Server {
+	return &Server{controller: ctrl, middleware: mw, config: *cfg}
 }
 
 func (s *Server) Start(ctx context.Context) error {
-	router := gin.Default()
+	server := echo.New()
+	server.HideBanner = true
+	server.HTTPErrorHandler = func(err error, c echo.Context) {
+		var e *httpresp.Error
+		if errors.As(err, &e) {
+			_ = c.JSON(e.Code, httpresp.Response{Status: e.Code, Error: e.Message})
+			return
+		}
 
-	apiRoutes := router.Group("/api/v2/upload")
-	{
-		apiRoutes.Use(s.middleware.PrivateMiddleware)
-		apiRoutes.POST("/file", s.controller.UploadFile)
-		apiRoutes.GET("/file", s.controller.GetFile)
-		apiRoutes.DELETE("/file", s.controller.DeleteFile)
-		apiRoutes.GET("/files/list", s.controller.ListFiles)
-	}
-	apiRoutes.GET("/health", s.controller.CheckHealth)
+		var httpErr *echo.HTTPError
+		if errors.As(err, &httpErr) {
+			code := httpErr.Code
+			_ = c.JSON(code, httpresp.Response{Status: code, Error: fmt.Sprintf("%v", httpErr.Message)})
+			return
+		}
 
-	httpServer := &http.Server{
-		Addr:    ":" + s.port,
-		Handler: router,
+		_ = c.JSON(nethttp.StatusInternalServerError, httpresp.Response{Status: nethttp.StatusInternalServerError, Error: "internal server error"})
 	}
+
+	s.middleware.RegisterGlobal(server)
+	route.New(server, s.controller, s.middleware.Internal()).RegisterRoutes()
+
+	addr := fmt.Sprintf(":%s", s.config.Port)
 
 	go func() {
 		<-ctx.Done()
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		if err := httpServer.Shutdown(shutdownCtx); err != nil && err != http.ErrServerClosed {
+		if err := server.Shutdown(shutdownCtx); err != nil && !errors.Is(err, nethttp.ErrServerClosed) {
 			log.Printf("upload-service http shutdown error: %v", err)
 		}
 	}()
 
-	log.Printf("upload-service http listening on :%s", s.port)
-	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+	log.Printf("upload-service http listening on %s", addr)
+	if err := server.Start(addr); err != nil && !errors.Is(err, nethttp.ErrServerClosed) {
 		return fmt.Errorf("http server: %w", err)
 	}
 

@@ -57,39 +57,35 @@ type ChunkCompleteHandler struct {
 }
 
 // NewChunkCompleteHandler creates a new chunk complete handler
-func NewChunkCompleteHandler(infra *infra.Infra) *ChunkCompleteHandler {
-	return &ChunkCompleteHandler{
-		infra: infra,
-	}
+func NewChunkCompleteHandler(i *infra.Infra) *ChunkCompleteHandler {
+	return &ChunkCompleteHandler{infra: i}
 }
 
 // HandleChunkComplete processes a chunk_complete message
 // 1. List and sort chunks from pending bucket
-// 2. Stream compose chunks into a single file with hash calculation
+// 2. Stream-compose chunks into a single file with hash calculation
 // 3. Upload composed file to target bucket
 // 4. Delete chunks from pending bucket
-// 5. Send compose_completed message back to cloud-orchestrator
+// 5. Publish compose_completed message back to cloud-orchestrator
 func (h *ChunkCompleteHandler) HandleChunkComplete(ctx context.Context, body []byte) error {
 	startTime := time.Now()
 
-	// Parse message
 	var msg ChunkCompleteMessage
 	if err := json.Unmarshal(body, &msg); err != nil {
-		return fmt.Errorf("failed to parse chunk_complete message: %w", err)
+		return fmt.Errorf("chunk_complete: parse: %w", err)
 	}
 
-	log.Printf("[ChunkComplete] Processing upload %s: %s (%d chunks, target: %s/%s)",
+	log.Printf("[ChunkComplete] upload=%s file=%s chunks=%d target=%s/%s",
 		msg.UploadID, msg.FileName, msg.TotalChunks, msg.TargetBucket, msg.TargetPath)
 
-	// Process compose and get result
-	fileHash, fileSize, err := h.composeAndUpload(ctx, &msg)
+	fileHash, fileSize, filePath, err := h.composeAndUpload(ctx, &msg)
 
-	// Prepare response message
 	response := ComposeCompletedMessage{
 		UploadID:    msg.UploadID,
 		BucketID:    msg.BucketID,
 		UserID:      msg.UserID,
 		FileHash:    fileHash,
+		FilePath:    filePath,
 		FileSize:    fileSize,
 		ContentType: msg.ContentType,
 		FileName:    msg.FileName,
@@ -97,205 +93,134 @@ func (h *ChunkCompleteHandler) HandleChunkComplete(ctx context.Context, body []b
 		Success:     err == nil,
 		Timestamp:   time.Now().Unix(),
 	}
-
 	if err != nil {
 		response.Error = err.Error()
-		log.Printf("[ChunkComplete] Failed to compose upload %s: %v", msg.UploadID, err)
+		log.Printf("[ChunkComplete] ERROR upload=%s: %v", msg.UploadID, err)
 	} else {
-		// Construct final file path using original filename (no hash)
-		fileName := msg.FileName
-		if msg.CustomPath != "" {
-			response.FilePath = fmt.Sprintf("%s/%s", msg.CustomPath, fileName)
-		} else {
-			response.FilePath = fileName
-		}
-		log.Printf("[ChunkComplete] Successfully composed upload %s -> %s (hash: %s, size: %d)",
-			msg.UploadID, response.FilePath, fileHash, fileSize)
+		log.Printf("[ChunkComplete] OK upload=%s path=%s hash=%s size=%d elapsed=%v",
+			msg.UploadID, filePath, fileHash, fileSize, time.Since(startTime))
 	}
 
-	// Publish compose_completed message back to cloud-orchestrator
-	if err := h.publishComposeCompleted(ctx, response); err != nil {
-		return fmt.Errorf("failed to publish compose_completed: %w", err)
+	if pubErr := h.publishComposeCompleted(response); pubErr != nil {
+		return fmt.Errorf("chunk_complete: publish: %w", pubErr)
 	}
-
-	elapsed := time.Since(startTime)
-	log.Printf("[ChunkComplete] Completed processing upload %s in %v", msg.UploadID, elapsed)
-
 	return nil
 }
 
-// composeAndUpload streams chunks, calculates hash, and uploads to target bucket
-func (h *ChunkCompleteHandler) composeAndUpload(ctx context.Context, msg *ChunkCompleteMessage) (string, int64, error) {
-	// 1. List all chunks from pending bucket
-	chunkPrefix := msg.TempPrefix // e.g., "{upload_id}/"
-	allObjects, err := h.infra.MinioClient.ListObjectsFromBucket(ctx, msg.TempBucket, chunkPrefix)
+func (h *ChunkCompleteHandler) composeAndUpload(ctx context.Context, msg *ChunkCompleteMessage) (fileHash string, fileSize int64, finalPath string, err error) {
+	// 1. List chunks
+	allKeys, err := h.infra.Storage.List(ctx, msg.TempBucket, msg.TempPrefix)
 	if err != nil {
-		return "", 0, fmt.Errorf("failed to list chunks: %w", err)
+		return "", 0, "", fmt.Errorf("list chunks: %w", err)
 	}
 
-	// Filter out folder markers and non-chunk files
-	// Only keep files ending with .part (actual chunk files)
 	var chunks []string
-	for _, key := range allObjects {
-		// Skip folder markers (keys ending with /)
-		if strings.HasSuffix(key, "/") {
-			log.Printf("[ChunkComplete] Skipping folder marker: %s", key)
+	for _, k := range allKeys {
+		if strings.HasSuffix(k, "/") {
 			continue
 		}
-		// Only include .part files (actual chunks)
-		if strings.HasSuffix(key, ".part") {
-			chunks = append(chunks, key)
-		} else {
-			log.Printf("[ChunkComplete] Skipping non-chunk file: %s", key)
+		if strings.HasSuffix(k, ".part") {
+			chunks = append(chunks, k)
 		}
 	}
 
 	if len(chunks) == 0 {
-		return "", 0, fmt.Errorf("no chunks found in %s/%s", msg.TempBucket, chunkPrefix)
+		return "", 0, "", fmt.Errorf("no chunks in %s/%s", msg.TempBucket, msg.TempPrefix)
 	}
-
 	if len(chunks) != msg.TotalChunks {
-		return "", 0, fmt.Errorf("chunk count mismatch: expected %d, found %d (total objects: %d)", msg.TotalChunks, len(chunks), len(allObjects))
+		return "", 0, "", fmt.Errorf("chunk mismatch: want %d got %d", msg.TotalChunks, len(chunks))
 	}
 
-	// 2. Sort chunks by name (chunk_00000.part, chunk_00001.part, ...)
 	sort.Strings(chunks)
-	log.Printf("[ChunkComplete] Found %d chunks for upload %s", len(chunks), msg.UploadID)
 
-	// 3. Create a pipe to stream composed file
-	// Use io.Pipe for true streaming without loading everything into memory
+	// 2. Stream-compose via pipe
 	pipeReader, pipeWriter := io.Pipe()
 	hasher := sha256.New()
 
-	// Channel to capture result from goroutine (size and error)
 	type streamResult struct {
-		totalSize int64
-		err       error
+		size int64
+		err  error
 	}
-	resultChan := make(chan streamResult, 1)
+	resultCh := make(chan streamResult, 1)
 
-	// Start streaming chunks in a goroutine
 	go func() {
 		defer pipeWriter.Close()
-
-		var totalSize int64
-		for i, chunkKey := range chunks {
-			// Get chunk stream from MinIO
-			chunkStream, size, err := h.infra.MinioClient.GetObjectStream(ctx, msg.TempBucket, chunkKey)
-			if err != nil {
-				resultChan <- streamResult{0, fmt.Errorf("failed to get chunk %d stream: %w", i, err)}
+		var total int64
+		for i, key := range chunks {
+			rc, _, sErr := h.infra.Storage.GetStream(ctx, msg.TempBucket, key)
+			if sErr != nil {
+				resultCh <- streamResult{0, fmt.Errorf("get chunk %d: %w", i, sErr)}
 				return
 			}
-
-			// Stream chunk to both hasher and pipe writer
-			writer := io.MultiWriter(pipeWriter, hasher)
-			written, err := io.Copy(writer, chunkStream)
-			chunkStream.Close()
-
-			if err != nil {
-				resultChan <- streamResult{0, fmt.Errorf("failed to stream chunk %d: %w", i, err)}
+			w := io.MultiWriter(pipeWriter, hasher)
+			n, sErr := io.Copy(w, rc)
+			rc.Close()
+			if sErr != nil {
+				resultCh <- streamResult{0, fmt.Errorf("stream chunk %d: %w", i, sErr)}
 				return
 			}
-
-			totalSize += written
-			log.Printf("[ChunkComplete] Streamed chunk %d/%d (%d bytes, size hint: %d)", i+1, len(chunks), written, size)
+			total += n
+			log.Printf("[ChunkComplete] streamed chunk %d/%d (%d bytes)", i+1, len(chunks), n)
 		}
-
-		resultChan <- streamResult{totalSize, nil}
+		resultCh <- streamResult{total, nil}
 	}()
 
-	// 4. Determine final file path
+	// 3. Upload composed stream to temp key
 	ext := filepath.Ext(msg.FileName)
 	if ext == "" {
 		ext = ".bin"
 	}
+	tempKey := fmt.Sprintf("_temp_compose/%s%s", msg.UploadID, ext)
 
-	// We need to upload while streaming, but we don't have the hash yet
-	// So we'll upload to a temp location first, then rename after we have the hash
-	tempUploadKey := fmt.Sprintf("_temp_compose/%s%s", msg.UploadID, ext)
-
-	// 5. Upload composed stream to target bucket
-	// Use the reader from pipe
-	metadata := map[string]string{
+	meta := map[string]string{
 		"original-name": msg.FileName,
 		"content-type":  msg.ContentType,
 		"upload-id":     msg.UploadID,
 	}
 
-	log.Printf("[ChunkComplete] Uploading composed file to %s/%s", msg.TargetBucket, tempUploadKey)
-
-	if err := h.infra.MinioClient.PutObjectStreamWithMetadata(
-		ctx,
-		msg.TargetBucket,
-		tempUploadKey,
-		pipeReader,
-		msg.FileSize, // Expected size
-		msg.ContentType,
-		metadata,
-	); err != nil {
+	if putErr := h.infra.Storage.Put(ctx, msg.TargetBucket, tempKey, pipeReader, msg.FileSize, msg.ContentType, meta); putErr != nil {
 		pipeReader.Close()
-		return "", 0, fmt.Errorf("failed to upload composed file: %w", err)
+		return "", 0, "", fmt.Errorf("upload composed: %w", putErr)
 	}
 
-	// Wait for streaming goroutine to finish and get result
-	result := <-resultChan
-	if result.err != nil {
-		// Cleanup temp file
-		_ = h.infra.MinioClient.DeleteObject(ctx, msg.TargetBucket, tempUploadKey)
-		return "", 0, result.err
+	res := <-resultCh
+	if res.err != nil {
+		_ = h.infra.Storage.Delete(ctx, msg.TargetBucket, tempKey)
+		return "", 0, "", res.err
 	}
 
-	totalSize := result.totalSize
-
-	// 6. Calculate final hash
-	fileHash := hex.EncodeToString(hasher.Sum(nil))
-	log.Printf("[ChunkComplete] Calculated hash: %s (total size: %d)", fileHash, totalSize)
-
-	// 7. Rename/copy temp file to final location with original filename (no hash)
-	fileName := msg.FileName
-	var finalPath string
+	// 4. Build final path and copy temp → final
+	fileHash = hex.EncodeToString(hasher.Sum(nil))
 	if msg.CustomPath != "" {
-		finalPath = fmt.Sprintf("%s/%s", msg.CustomPath, fileName)
+		finalPath = fmt.Sprintf("%s/%s", msg.CustomPath, msg.FileName)
 	} else {
-		finalPath = fileName
+		finalPath = msg.FileName
 	}
 
-	// Copy from temp to final location
-	log.Printf("[ChunkComplete] Moving composed file to final location: %s/%s", msg.TargetBucket, finalPath)
-	if err := h.infra.MinioClient.CopyObject(ctx, msg.TargetBucket, tempUploadKey, msg.TargetBucket, finalPath); err != nil {
-		// Cleanup temp file
-		_ = h.infra.MinioClient.DeleteObject(ctx, msg.TargetBucket, tempUploadKey)
-		return "", 0, fmt.Errorf("failed to move to final location: %w", err)
+	if cpErr := h.infra.Storage.Copy(ctx, msg.TargetBucket, tempKey, msg.TargetBucket, finalPath); cpErr != nil {
+		_ = h.infra.Storage.Delete(ctx, msg.TargetBucket, tempKey)
+		return "", 0, "", fmt.Errorf("move to final: %w", cpErr)
 	}
+	_ = h.infra.Storage.Delete(ctx, msg.TargetBucket, tempKey)
 
-	// Delete temp file
-	_ = h.infra.MinioClient.DeleteObject(ctx, msg.TargetBucket, tempUploadKey)
-
-	// 8. Cleanup chunks from pending bucket (async)
+	// 5. Async cleanup chunks
 	go func() {
-		cleanupCtx := context.Background()
-		for _, chunkKey := range chunks {
-			if err := h.infra.MinioClient.DeleteObject(cleanupCtx, msg.TempBucket, chunkKey); err != nil {
-				log.Printf("[ChunkComplete] Warning: failed to delete chunk %s: %v", chunkKey, err)
+		bkg := context.Background()
+		for _, k := range chunks {
+			if delErr := h.infra.Storage.Delete(bkg, msg.TempBucket, k); delErr != nil {
+				log.Printf("[ChunkComplete] warn: delete chunk %s: %v", k, delErr)
 			}
 		}
-		log.Printf("[ChunkComplete] Cleaned up %d chunks from %s/%s", len(chunks), msg.TempBucket, chunkPrefix)
+		log.Printf("[ChunkComplete] cleaned %d chunks from %s/%s", len(chunks), msg.TempBucket, msg.TempPrefix)
 	}()
 
-	return fileHash, totalSize, nil
+	return fileHash, res.size, finalPath, nil
 }
 
-// publishComposeCompleted sends compose_completed message to cloud-orchestrator
-func (h *ChunkCompleteHandler) publishComposeCompleted(ctx context.Context, msg ComposeCompletedMessage) error {
+func (h *ChunkCompleteHandler) publishComposeCompleted(msg ComposeCompletedMessage) error {
 	body, err := json.Marshal(msg)
 	if err != nil {
-		return fmt.Errorf("failed to marshal compose_completed message: %w", err)
+		return fmt.Errorf("marshal: %w", err)
 	}
-
-	// Publish to compose_completed queue
-	return h.infra.RabbitMQ.PublishToExchange(
-		"upload.exchange",
-		"upload.compose_completed",
-		body,
-	)
+	return h.infra.Queue.Publish("upload.exchange", "upload.compose_completed", body)
 }

@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gau-upload-deployment
+  namespace: bao-${DEPLOY_ENV}-env
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gau-upload-service
+  template:
+    metadata:
+      labels:
+        app: gau-upload-service
+    spec:
+      containers:
+        - name: upload-service
+          image: iamqbao/gau_upload_service:latest
+          envFrom:
+#            - configMapRef:
+#                name: bao-upload-${DEPLOY_ENV}-config
+            - secretRef:
+                name: bao-upload-${DEPLOY_ENV}-secret
+          resources:
+            requests:
+              cpu: "300m"
+              memory: "500Mi"
+            limits:
+              cpu: "500m"
+              memory: "1Gi"
+
+---

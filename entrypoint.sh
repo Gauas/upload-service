@@ -1,36 +1,23 @@
 #!/bin/sh
 
-# Get service type from first argument, default to "http"
 SERVICE_TYPE=${1:-http}
 
 echo "Starting service: $SERVICE_TYPE"
 
-# Run migrations first for both services (common step)
-# Uncomment when migrations are ready
-# echo "Running migrations..."
-# migrate -database "$PGPOOL_URL" -path migrations up
-# if [ $? -ne 0 ]; then
-#     echo "Migrations failed. Exiting."
-#     exit 1
-# fi
-# echo "Migrations completed successfully."
-
-# Start the appropriate service
 if [ "$SERVICE_TYPE" = "consumer" ]; then
-    echo "Starting Consumer service..."
+    echo "Starting consumer service..."
     if [ -f "./consumer-service" ]; then
-        ./consumer-service
-    else
-        echo "Binary not found. Running with 'go run'..."
-        go run consumer/main.go
+        exec ./consumer-service
     fi
-else
-    # Default to HTTP service
-    echo "Starting HTTP API service..."
-    if [ -f "./http-service" ]; then
-        ./http-service
-    else
-        echo "Binary not found. Running with 'go run'..."
-        go run main.go
-    fi
+
+    echo "Consumer binary not found. Running with go run..."
+    exec go run ./consumer
 fi
+
+echo "Starting HTTP API service..."
+if [ -f "./http-service" ]; then
+    exec ./http-service
+fi
+
+echo "HTTP binary not found. Running with go run..."
+exec go run ./cmd/main.go

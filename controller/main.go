@@ -1,22 +1,11 @@
 package controller
 
-import (
-	"github.com/gauas/upload-service/config"
-	"github.com/gauas/upload-service/infra"
-	"github.com/gauas/upload-service/provider"
-)
+import "github.com/gauas/upload-service/service"
 
 type Controller struct {
-	Infrastructure *infra.Infra
-	Config         *config.Config
-	Provider       *provider.Provider
+	Service *service.Service
 }
 
-func NewController(cfg *config.Config, infraInstance *infra.Infra) *Controller {
-	provide := provider.InitProvider(cfg)
-	return &Controller{
-		Infrastructure: infraInstance,
-		Config:         cfg,
-		Provider:       provide,
-	}
+func New(svc *service.Service) *Controller {
+	return &Controller{Service: svc}
 }

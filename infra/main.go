@@ -1,61 +1,60 @@
 package infra
 
 import (
+	"log"
+
 	"github.com/gauas/upload-service/config"
+	"github.com/gauas/upload-service/packages/metadata"
+	"github.com/gauas/upload-service/packages/queue"
+	"github.com/gauas/upload-service/packages/storage"
 )
 
 type Infra struct {
-	MinioClient    *MinioClient
-	ParquetService *ParquetService
-	Logger         *LoggerClient
-	RabbitMQ       *RabbitMQClient
+	Storage  *storage.Client
+	Metadata *metadata.Service
+	Queue    *queue.Client
 }
 
-func InitInfra(config *config.Config) *Infra {
-	minioClient, err := NewMinioClient(config)
+func New(cfg *config.Config) *Infra {
+	store, err := storage.New(cfg.Storage)
 	if err != nil {
-		panic("Failed to create MinIO client: " + err.Error())
+		log.Fatalf("infra: storage: %v", err)
 	}
+	log.Println("infra: storage connected")
 
-	parquetService := NewParquetService(minioClient)
+	meta := metadata.New(store)
 
-	loggerClient := InitLoggerClient(config)
-	if loggerClient == nil {
-		panic("Failed to create Logger client")
-	}
-
-	rabbitMQ := InitRabbitMQClient(config)
-
-	return &Infra{
-		MinioClient:    minioClient,
-		ParquetService: parquetService,
-		Logger:         loggerClient,
-		RabbitMQ:       rabbitMQ,
-	}
-}
-
-func InitInfraForConsumer(config *config.Config) *Infra {
-	minioClient, err := NewMinioClient(config)
+	q, err := queue.New(cfg.Queue)
 	if err != nil {
-		panic("Failed to create MinIO client: " + err.Error())
-	}
-
-	parquetService := NewParquetService(minioClient)
-
-	loggerClient := InitLoggerClient(config)
-	if loggerClient == nil {
-		panic("Failed to create Logger client")
-	}
-
-	rabbitMQ := InitRabbitMQClient(config)
-	if rabbitMQ == nil {
-		panic("Failed to initialize RabbitMQ - required for consumer service")
+		log.Printf("infra: queue unavailable: %v", err)
+	} else {
+		log.Println("infra: queue connected")
 	}
 
 	return &Infra{
-		MinioClient:    minioClient,
-		ParquetService: parquetService,
-		Logger:         loggerClient,
-		RabbitMQ:       rabbitMQ,
+		Storage:  store,
+		Metadata: meta,
+		Queue:    q,
+	}
+}
+
+func NewForConsumer(cfg *config.Config) *Infra {
+	store, err := storage.New(cfg.Storage)
+	if err != nil {
+		log.Fatalf("infra: storage: %v", err)
+	}
+
+	meta := metadata.New(store)
+
+	q, err := queue.New(cfg.Queue)
+	if err != nil {
+		log.Fatalf("infra: queue required for consumer: %v", err)
+	}
+	log.Println("infra: consumer ready")
+
+	return &Infra{
+		Storage:  store,
+		Metadata: meta,
+		Queue:    q,
 	}
 }

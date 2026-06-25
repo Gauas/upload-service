@@ -17,48 +17,27 @@ type QueueConfig struct {
 	Password string
 }
 
-type ChunkConfig struct {
-	DefaultChunkSize int64
-	MaxChunkSize     int64
-	TempDir          string
-}
-
-type LimitConfig struct {
-	ImageMaxSize int64
-	FileMaxSize  int64
-}
-
-type GrafanaConfig struct {
-	OTLPEndpoint string
-	ServiceName  string
-}
-
-type EnvironmentConfig struct {
-	Mode  string
-	Group string
-}
-
 type Config struct {
-	Port       string
-	GRPCPort   string
-	SecretKey  string
-	PrivateKey string
-	CDNURL     string
-	Storage    StorageConfig
-	Queue      QueueConfig
-	Chunk      ChunkConfig
-	Limit      LimitConfig
-	Grafana    GrafanaConfig
-	Env        EnvironmentConfig
+	Port        string
+	GRPCPort    string
+	SecretKey   string
+	TempDir     string
+	FileMaxSize int64
+	CDNURL      string
+	Storage     StorageConfig
+	Queue       QueueConfig
 }
 
-func New() Config {
+func New() *Config {
 	return fromEnv()
 }
 
-func validate(cfg Config) {
+func validate(cfg *Config) {
 	if cfg.Port == "" {
 		log.Fatal("config: PORT is required")
+	}
+	if cfg.GRPCPort == "" {
+		log.Fatal("config: GRPC_PORT is required")
 	}
 	if cfg.SecretKey == "" {
 		log.Fatal("config: SECRET_KEY is required")
