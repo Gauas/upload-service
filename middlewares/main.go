@@ -10,6 +10,8 @@ import (
 	echoMiddleware "github.com/labstack/echo/v4/middleware"
 )
 
+var MuteLog = []string{"/v1/upload/health"}
+
 type Middleware struct {
 	Config *config.Config
 }
@@ -20,7 +22,17 @@ func New(cfg *config.Config) *Middleware {
 
 func (m *Middleware) RegisterGlobal(e *echo.Echo) {
 	e.Use(echoMiddleware.Recover())
-	e.Use(echoMiddleware.Logger())
+	e.Use(echoMiddleware.LoggerWithConfig(echoMiddleware.LoggerConfig{
+		Skipper: func(c echo.Context) bool {
+			for _, path := range MuteLog {
+				if c.Path() == path {
+					return true
+				}
+			}
+
+			return false
+		},
+	}))
 	e.Use(echoMiddleware.RequestID())
 }
 
