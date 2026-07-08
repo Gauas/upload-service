@@ -1,8 +1,8 @@
 package route
 
 import (
-	"github.com/labstack/echo/v4"
 	"github.com/gauas/upload-service/controller"
+	"github.com/labstack/echo/v4"
 )
 
 type Router struct {

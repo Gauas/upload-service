@@ -6,12 +6,12 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/labstack/echo/v4"
 	"github.com/gauas/upload-service/config"
 	"github.com/gauas/upload-service/controller"
 	"github.com/gauas/upload-service/middlewares"
 	response "github.com/gauas/upload-service/packages/httpresp"
 	"github.com/gauas/upload-service/route"
+	"github.com/labstack/echo/v4"
 )
 
 type Kernel struct {
@@ -55,5 +55,3 @@ func errorHandler(err error, c echo.Context) {
 
 	_ = c.JSON(500, response.Response{Status: 500, Error: "internal server error"})
 }
-
-

@@ -6,8 +6,8 @@ import (
 	"log"
 	"time"
 
-	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/gauas/upload-service/config"
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 type Client struct {

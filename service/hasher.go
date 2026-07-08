@@ -3,9 +3,9 @@ package service
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"os"
-	"fmt"
 )
 
 func hashFile(f *os.File) (string, error) {

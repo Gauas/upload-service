@@ -18,4 +18,3 @@ var (
 	ErrorForbidden    = &Error{Code: http.StatusForbidden, Message: "forbidden"}
 	ErrorUnauthorized = &Error{Code: http.StatusUnauthorized, Message: "unauthorized"}
 )
-

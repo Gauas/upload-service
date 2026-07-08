@@ -6,10 +6,11 @@ import (
 )
 
 type Service struct {
-	Config *config.Config
-	Infra  *infra.Infra
+	// ponytail: keep infra concrete, single implementation; add interfaces when tests need isolation.
+	config *config.Config
+	infra  *infra.Infra
 }
 
 func New(cfg *config.Config, infra *infra.Infra) *Service {
-	return &Service{Config: cfg, Infra: infra}
+	return &Service{config: cfg, infra: infra}
 }
